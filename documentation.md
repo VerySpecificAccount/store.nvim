@@ -45,9 +45,7 @@ require("store").setup({
   preview_debounce = 100, -- ms delay for preview updates
   plugin_manager = "not-selected", -- "lazy.nvim" or "vim.pack"
 
-  -- Logging level: "off"|"error"|"warn"|"info"|"debug" (default "off";
-  -- the store never notifies about the network on its own - offline it
-  -- serves the cache silently)
+  -- Logging level: "off"|"error"|"warn"|"info"|"debug"
   logging = "warn",
 
   -- Custom list renderer
