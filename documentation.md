@@ -45,7 +45,9 @@ require("store").setup({
   preview_debounce = 100, -- ms delay for preview updates
   plugin_manager = "not-selected", -- "lazy.nvim" or "vim.pack"
 
-  -- Logging level: "off"|"error"|"warn"|"info"|"debug"
+  -- Logging level: "off"|"error"|"warn"|"info"|"debug" (default "off";
+  -- the store never notifies about the network on its own - offline it
+  -- serves the cache silently)
   logging = "warn",
 
   -- Custom list renderer
@@ -76,8 +78,63 @@ require("store").setup({
   -- Anonymous, open-source, and public usage telemetry (opt-out by setting false)
   -- Source: https://github.com/alex-popov-tech/store.nvim.telemetry
   telemetry = true,
+  -- Browser-style cache: everything you view lands on disk and opens
+  -- without the network; stale lists refresh silently in the background
+  cache = {
+    enabled = true,          -- false = no disk cache, network required
+    update_interval = 1800,  -- seconds a cached list/page stays trusted (0 = revalidate on every open)
+    implicit_updates = true, -- false = only <leader>r refreshes stale lists
+    -- per-section switches, all on by default; a section switched off is
+    -- fetched live every time (offline it says "not connected" instead
+    -- of erroring, like any uncached page)
+    sections = {
+      list = true,             -- the plugin database
+      install_catalogue = true, -- lazy.nvim / vim.pack install catalogues
+      readme = true,           -- the READMEs the preview shows
+      docs = true,             -- the doc files the preview shows
+    },
+  },
+
 })
 ```
+
+## Caching
+
+store.nvim keeps what you view in a browser-style cache under
+`stdpath("cache")/store.nvim`:
+
+- **Lists** (the plugin database, the install catalogues), **READMEs**,
+  **docs** and the **download/view stats** are all cached on disk.
+- While a cached resource is inside `cache.update_interval` seconds it is
+  served with NO request at all (the browser's max-age window).
+- When it goes stale the next open sends ONE conditional request
+  (`If-None-Match` / `If-Modified-Since`): a `304` keeps the copy and
+  costs nothing, a `200` replaces it. At most one such request runs per
+  URL at a time — cycling fast over stale pages never stacks requests.
+- With `cache.implicit_updates = true` (the default) a stale page — the
+  list and the previews alike — is shown the instant the cursor lands
+  on it, and the refresh happens behind it: cycling through the store
+  never waits on the network. The refreshed content swaps in silently
+  when it actually changed.
+- The first network-level failure latches "offline" for a minute: pages
+  that were never loaded (so not cached) skip the doomed request
+  entirely and the preview says **Not connected** — no error per
+  keystroke while cycling through plugins. Any successful request (or
+  the explicit `<leader>r`) unlatches.
+- `cache.sections` toggles the cache per kind of content — `list`,
+  `install_catalogue`, `readme`, `docs` — all on by default. A section
+  switched off is fetched live every time; offline it behaves like an
+  uncached page: "Not connected" in the preview, never an error storm.
+- With `cache.implicit_updates = true` (the default) a stale list is
+  shown immediately and the fresh one arrives silently in the background;
+  with `false` the list (and the previews) refresh only when you press
+  `<leader>r`.
+- `cache.enabled = false` turns the disk cache off (network required).
+- The explicit refresh (`<leader>r`) always bypasses the freshness window.
+- Upgrading from an older store.nvim keeps its cache: the previous
+  `db.json` / `db.etag` and the temp-dir READMEs are adopted as-is.
+
+Clear it with `<leader>r`'s full refresh or by deleting the directory.
 
 ## API
 
